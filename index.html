@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FiberLink ENG Suite | Link Budget Calculator</title>
+    <title>FiberLink ENG Suite v2.0 | Open Source Simulator</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -21,9 +21,6 @@
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=JetBrains+Mono:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-
-    <!-- Markdown Parser -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <!-- SheetJS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -48,6 +45,11 @@
                         sans: ['Roboto', 'sans-serif'],
                         mono: ['JetBrains Mono', 'monospace'],
                         digital: ['Share Tech Mono', 'monospace'],
+                    },
+                    cursor: {
+                        'crosshair': 'crosshair',
+                        'grab': 'grab',
+                        'grabbing': 'grabbing'
                     }
                 }
             }
@@ -55,15 +57,19 @@
     </script>
 
     <style>
-        body { background-color: #050505; color: #e0e0e0; overflow: hidden; }
+        body { background-color: #050505; color: #e0e0e0; overflow: hidden; user-select: none; }
         
         /* INSTRUMENTOS */
         .opm-device {
             background: #1a1a1a; border: 4px solid #f59e0b; border-radius: 15px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.8), inset 0 0 10px rgba(0,0,0,0.5);
-            width: 340px; /* Wider for math */
-            position: absolute; z-index: 9999; overflow: hidden;
+            width: 340px; 
+            position: absolute; z-index: 50; overflow: hidden;
+            transition: box-shadow 0.2s;
         }
+        .opm-device:active { cursor: grabbing; box-shadow: 0 15px 35px rgba(0,0,0,0.9); }
+        .opm-header { cursor: grab; }
+
         .opm-screen {
             background: #36423b;
             background-image: linear-gradient(180deg, rgba(0,0,0,0.1) 50%, rgba(255,255,255,0.05) 50%);
@@ -88,12 +94,6 @@
         }
         .opm-button:active { box-shadow: inset 2px 2px 5px #111; transform: scale(0.95); }
 
-        .otdr-frame {
-            background: #202020; border-top: 4px solid #333; border-right: 4px solid #333;
-            border-radius: 8px 8px 0 0; box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
-            display: flex; flex-direction: column; height: 100%;
-        }
-        
         .otdr-key {
             height: 100%; width: 4rem;
             background: linear-gradient(180deg, #333, #222);
@@ -106,18 +106,6 @@
         .otdr-key:active { background: #111; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5); transform: translateY(1px); }
         .otdr-key:hover { color: #fff; border-color: #555; }
 
-        .scope-bezel {
-            width: 160px; height: 160px; border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, #444, #111);
-            border: 4px solid #000; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            display: flex; justify-content: center; align-items: center; position: relative;
-        }
-        .scope-overlay {
-            position: absolute; inset: 0; border-radius: 50%;
-            background: url('data:image/svg+xml;utf8,<svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><circle cx="50%" cy="50%" r="40%" stroke="rgba(0,255,0,0.3)" stroke-width="1" fill="none"/><line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(0,255,0,0.3)" stroke-width="1"/><line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(0,255,0,0.3)" stroke-width="1"/></svg>');
-            pointer-events: none; z-index: 10;
-        }
-
         .cad-btn { @apply flex flex-col items-center justify-center w-full py-3 px-1 text-[10px] uppercase tracking-wider font-bold text-gray-500 bg-cad-panel border-l-2 border-transparent hover:bg-[#222] hover:text-white transition-all mb-2; }
         .cad-btn.active { @apply bg-[#1a1a1a] text-cad-accent border-cad-accent shadow-[inset_5px_0_10px_rgba(0,188,212,0.1)]; }
         .cad-input { width: 100%; background-color: #080808 !important; border: 1px solid #333 !important; color: #00bcd4 !important; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; padding: 6px 8px; outline: none; border-radius: 2px; }
@@ -125,7 +113,6 @@
 
         .leaflet-container { background: #050505; }
         
-        .icon-pole { background: #666; border: 1px solid #aaa; border-radius: 50%; box-shadow: 2px 2px 5px rgba(0,0,0,0.8); }
         .icon-mufa { background: #333; border: 2px solid #ff9800; border-radius: 4px; }
         .icon-nap { background: #000; border: 2px solid #fff; border-radius: 2px; box-shadow: 0 0 5px black; }
         .icon-camera { background: #9c27b0; border: 1px solid #fff; border-radius: 50%; color: white; display: flex; justify-content: center; align-items: center; font-size: 10px; }
@@ -136,21 +123,44 @@
         .toast { background: #1a1a1a; border-left: 4px solid #00bcd4; color: white; padding: 12px 20px; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); animation: slideIn 0.3s ease-out forwards; font-size: 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #333; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .zoom-indicator { position: absolute; top: 5px; right: 5px; background: rgba(0,188,212,0.2); border: 1px solid #00bcd4; color: #00bcd4; font-size: 9px; padding: 2px 4px; border-radius: 2px; display: none; }
-        #opm-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #4ade80; color: #000; padding: 2px 5px; font-weight: bold; display: none; pointer-events: none; }
-
+        
         #ai-panel { box-shadow: -5px 0 30px rgba(0,0,0,0.8); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         #ai-panel.open { transform: translateX(0); }
         .ai-message { @apply mb-2 p-2 rounded text-xs leading-snug; }
         .ai-message.user { @apply bg-[#2a2a2a] text-white border border-gray-700 ml-4; }
         .ai-message.bot { @apply bg-indigo-900/20 text-gray-300 border-l-2 border-indigo-500 mr-2 rounded-l-none pl-3; }
         .ai-message.bot strong { @apply text-indigo-300; }
-        .ai-typing::after { content: '...'; animation: ellipsis 1.5s infinite; }
-        @keyframes ellipsis { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
         
         /* Math Panel */
         .math-panel { background: rgba(0,0,0,0.5); border-radius: 4px; padding: 5px; margin-top: 5px; font-size: 9px; border: 1px dashed #555; }
         .math-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
         .math-header { text-align: center; color: #f59e0b; font-weight: bold; border-bottom: 1px solid #444; margin-bottom: 4px; padding-bottom: 2px; }
+        .val-pos { color: #4ade80; }
+        .val-neg { color: #f87171; }
+
+        /* Custom Context Menu */
+        #context-menu {
+            position: absolute;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.8);
+            border-radius: 4px;
+            padding: 4px 0;
+            z-index: 1000;
+            min-width: 150px;
+            display: none;
+        }
+        .ctx-item {
+            padding: 8px 12px;
+            font-size: 11px;
+            color: #ccc;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ctx-item:hover { background: #00bcd4; color: black; }
+        .ctx-divider { height: 1px; background: #333; margin: 4px 0; }
     </style>
 </head>
 <body class="h-screen flex flex-col font-sans text-sm bg-black overflow-hidden">
@@ -162,7 +172,7 @@
                 <i class="fa-solid fa-network-wired text-xl"></i>
                 <div class="flex flex-col">
                     <span class="font-bold tracking-widest text-sm leading-none">FIBER<span class="text-white">LINK</span></span>
-                    <span class="text-[9px] text-gray-500 font-mono tracking-widest">CALCULADORA DE ENLACE</span>
+                    <span class="text-[9px] text-gray-500 font-mono tracking-widest">SUITE PRO v2.0</span>
                 </div>
             </div>
             <div class="h-6 w-px bg-cad-border mx-2"></div>
@@ -177,6 +187,17 @@
                 <span class="block text-[9px] text-gray-500 uppercase">Enlace</span>
                 <span id="header-status" class="text-xs font-bold text-cad-success bg-green-900/20 px-2 py-0.5 rounded border border-green-900/50">OPERATIVO</span>
             </div>
+            <!-- Botones de Proyecto -->
+            <div class="flex gap-1 mr-2">
+                <button onclick="app.saveProject()" class="bg-[#111] hover:bg-[#222] text-gray-300 border border-gray-700 px-2 py-1 rounded text-[10px] flex items-center gap-1" title="Guardar Proyecto (.json)">
+                    <i class="fa-solid fa-floppy-disk text-blue-400"></i> Guardar
+                </button>
+                <label class="bg-[#111] hover:bg-[#222] text-gray-300 border border-gray-700 px-2 py-1 rounded text-[10px] flex items-center gap-1 cursor-pointer" title="Cargar Proyecto">
+                    <i class="fa-solid fa-folder-open text-yellow-400"></i> Abrir
+                    <input type="file" id="file-input" class="hidden" accept=".json" onchange="app.loadProject(this)">
+                </label>
+            </div>
+
             <button onclick="app.toggleAI()" class="flex items-center gap-2 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/50 px-3 py-1.5 rounded transition-all group">
                 <i class="fa-solid fa-microchip text-indigo-400 group-hover:text-white transition-colors"></i>
                 <span class="text-xs font-bold">Copiloto</span>
@@ -200,24 +221,28 @@
             <button onclick="app.setTool('splice')" id="tool-splice" class="cad-btn"><i class="fa-solid fa-xmarks-lines text-orange-500"></i><span>Empalme</span></button>
             <button onclick="app.setTool('connector')" id="tool-connector" class="cad-btn"><i class="fa-solid fa-grip-lines-vertical text-gray-300"></i><span>Conector</span></button>
             <button onclick="app.setTool('splitter')" id="tool-splitter" class="cad-btn"><i class="fa-solid fa-share-nodes text-purple-400"></i><span>Splitter</span></button>
+            <button onclick="app.setTool('dcm')" id="tool-dcm" class="cad-btn"><i class="fa-solid fa-filter text-pink-500"></i><span>Compensador</span></button>
             
             <div class="h-px w-10 bg-cad-border my-1"></div>
             <div class="text-[8px] text-gray-600 font-bold mb-2 uppercase tracking-widest w-full text-center">Activos</div>
             <button onclick="app.setTool('amp')" id="tool-amp" class="cad-btn"><i class="fa-solid fa-caret-right text-green-500"></i><span>EDFA</span></button>
             
             <div class="mt-auto w-full px-2 pb-2">
-                <button onclick="app.toggleView()" class="w-full bg-blue-900/30 text-blue-400 border border-blue-800 rounded py-2 hover:bg-blue-900/50 transition"><i class="fa-solid fa-map-location-dot"></i></button>
+                <button onclick="app.toggleView()" class="w-full bg-blue-900/30 text-blue-400 border border-blue-800 rounded py-2 hover:bg-blue-900/50 transition" title="Cambiar Vista Mapa/Esquema"><i class="fa-solid fa-map-location-dot"></i></button>
             </div>
         </aside>
 
         <!-- MAIN VIEW -->
         <div class="flex-1 flex flex-col relative bg-[#050505] overflow-hidden">
             
-            <!-- OPM HUD (Calculadora) -->
-            <div id="hud-meter" class="opm-device hidden transition-all duration-200 top-6 right-6">
-                <div class="flex justify-between items-center px-3 py-2 bg-[#222] border-b border-[#333]">
-                    <span class="text-[10px] font-bold text-gray-400 tracking-widest">OPM-300 PRO</span>
-                    <i class="fa-solid fa-battery-full text-green-500 text-xs"></i>
+            <!-- OPM HUD (Calculadora) - Draggable -->
+            <div id="hud-meter" class="opm-device hidden top-6 right-6">
+                <div class="opm-header flex justify-between items-center px-3 py-2 bg-[#222] border-b border-[#333]" onmousedown="app.dragStart(event)">
+                    <span class="text-[10px] font-bold text-gray-400 tracking-widest cursor-grab">OPM-300 PRO :: <span id="hud-drag-hint" class="text-[8px] text-gray-600">ARRASTRAR</span></span>
+                    <div class="flex gap-2">
+                        <i class="fa-solid fa-grip-lines text-gray-600 text-xs"></i>
+                        <i class="fa-solid fa-battery-full text-green-500 text-xs"></i>
+                    </div>
                 </div>
                 <div class="opm-screen" id="opm-lcd">
                     <div class="flex justify-between items-end border-b border-white/10 pb-1 mb-2">
@@ -232,20 +257,35 @@
                     <div class="text-center py-2 relative">
                         <div id="hud-pwr" class="text-4xl font-bold tracking-widest">-00.00</div>
                         <div id="hud-unit" class="text-sm text-gray-400">dBm</div>
-                        <div id="opm-msg" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#4ade80;color:#000;padding:2px 5px;">SAVED</div>
+                        <div id="opm-msg" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#4ade80;color:#000;padding:2px 5px;z-index:100;">SAVED</div>
                     </div>
                 </div>
                 <div class="px-4 pb-3">
                     <div class="flex justify-between items-center mb-1">
+                        <span class="text-[9px] text-gray-500 uppercase font-bold">Fibra</span>
+                        <span id="hud-fiber-id" class="text-[10px] text-gray-300">--</span>
+                    </div>
+                     <div class="flex justify-between items-center mb-1">
                         <span class="text-[9px] text-gray-500 uppercase font-bold">Ubicación</span>
                         <span id="hud-dist" class="text-xs font-mono text-white bg-black px-2 py-0.5 rounded border border-gray-700">-- km</span>
                     </div>
                 </div>
                 <div class="bg-[#111] p-3 flex justify-around border-t border-[#333]">
                     <div class="opm-button" onclick="app.opmSave()" title="Guardar"><i class="fa-solid fa-floppy-disk"></i></div>
+                    <div class="opm-button" onclick="app.opmSetRef()" title="Set Ref"><i class="fa-solid fa-scale-balanced"></i></div>
                     <div class="opm-button" onclick="app.opmCycleLambda()" title="Lambda"><i class="fa-solid fa-wave-square"></i></div>
                     <div class="opm-button text-red-500 border-red-900" title="Cerrar" onclick="app.closeHUD()"><i class="fa-solid fa-power-off"></i></div>
                 </div>
+            </div>
+
+            <!-- Context Menu -->
+            <div id="context-menu">
+                <div class="ctx-item" onclick="app.ctxAction('inspect')"><i class="fa-solid fa-eye text-blue-400"></i> Inspeccionar Aquí</div>
+                <div class="ctx-divider"></div>
+                <div class="ctx-item" onclick="app.ctxAction('splice')"><i class="fa-solid fa-xmarks-lines text-orange-500"></i> Insertar Empalme</div>
+                <div class="ctx-item" onclick="app.ctxAction('connector')"><i class="fa-solid fa-grip-lines-vertical text-gray-300"></i> Insertar Conector</div>
+                <div class="ctx-item" onclick="app.ctxAction('splitter')"><i class="fa-solid fa-share-nodes text-purple-400"></i> Insertar Splitter</div>
+                <div class="ctx-item" onclick="app.ctxAction('dcm')"><i class="fa-solid fa-filter text-pink-500"></i> Insertar DCM</div>
             </div>
 
             <!-- MAP LAYER -->
@@ -290,6 +330,7 @@
                     <i id="tool-icon-display" class="fa-solid fa-arrow-pointer"></i>
                     <span id="tool-name-display" class="font-bold text-sm">CURSOR</span>
                 </div>
+                <div id="tool-desc-display" class="text-[10px] text-gray-500 mt-1">Inspección</div>
             </div>
             <div class="flex-1 overflow-y-auto p-4 space-y-6">
                 <div class="space-y-3">
@@ -325,9 +366,19 @@
                 <div id="prop-panel" class="hidden bg-[#1a1a1a] p-3 rounded border border-cad-accent/30 shadow-lg">
                     <div class="flex justify-between mb-2"><span class="text-xs font-bold text-white">Editar</span><span id="edit-type" class="text-[9px] bg-black px-1 rounded text-gray-400">TYPE</span></div>
                     <div class="space-y-2">
-                        <input id="prop-km" type="number" step="0.01" class="cad-input" placeholder="KM">
-                        <input id="prop-val" type="number" step="0.1" class="cad-input" placeholder="dB">
-                        <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <span class="text-[8px] text-gray-500">UBICACIÓN (KM)</span>
+                            <input id="prop-km" type="number" step="0.01" class="cad-input" placeholder="KM">
+                        </div>
+                        <div>
+                            <span class="text-[8px] text-gray-500">PÉRDIDA (dB)</span>
+                            <input id="prop-val" type="number" step="0.1" class="cad-input" placeholder="dB">
+                        </div>
+                        <div id="prop-reflectance-group" class="hidden">
+                            <span class="text-[8px] text-gray-500">REFLECTANCIA (dB)</span>
+                            <input id="prop-ref" type="number" step="1" class="cad-input" placeholder="-50">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
                             <button onclick="app.updateSelected()" class="bg-cad-accent text-black text-[10px] font-bold py-1 rounded">GUARDAR</button>
                             <button onclick="app.deleteSelected()" class="bg-red-900/30 text-red-400 border border-red-900/50 text-[10px] font-bold py-1 rounded">BORRAR</button>
                         </div>
@@ -348,8 +399,11 @@
                 <div class="flex items-center gap-2 text-indigo-400"><i class="fa-solid fa-robot"></i><span class="font-bold text-sm">Copiloto</span></div>
                 <button onclick="app.toggleAI()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
+            <div class="px-4 py-2 bg-[#111] border-b border-gray-800">
+                <input type="password" id="gemini-key" class="w-full bg-[#050505] border border-gray-700 text-[10px] p-1 rounded text-gray-300" placeholder="Google Gemini API Key">
+            </div>
             <div id="ai-chat-content" class="flex-1 overflow-y-auto p-4 space-y-3">
-                <div class="ai-message bot">Hola. Analizo tu red en tiempo real.</div>
+                <div class="ai-message bot">Hola. Analizo tu red en tiempo real. Configura tu API Key arriba para empezar.</div>
             </div>
             <div class="p-3 bg-[#0a0a0a] border-t border-cad-border">
                 <div class="flex gap-2">
@@ -384,7 +438,6 @@
             { id: 12,colorName: 'Aqua',    hex: '#7FDBFF', svc: 'DARK',     txOffset: 0 }
         ];
         
-        // RUTA DETALLADA REALISTA (CALLE POR CALLE - APROX)
         const ROUTE_NODES = [
             [-12.0967, -77.0250], [-12.1000, -77.0280], [-12.1150, -77.0250], [-12.1350, -77.0220],
             [-12.1550, -77.0200], [-12.1700, -77.0150], [-12.1900, -77.0050], [-12.2100, -76.9800],
@@ -396,9 +449,9 @@
             splice: { name: 'EMPALME', icon: 'fa-xmarks-lines', desc: 'Fusión (0.05dB)' },
             connector: { name: 'CONECTOR', icon: 'fa-grip-lines-vertical', desc: 'UPC/APC (0.25dB)' },
             splitter: { name: 'SPLITTER', icon: 'fa-share-nodes', desc: '1:8 (10.0dB)' },
+            dcm: { name: 'COMPENSADOR', icon: 'fa-filter', desc: 'Dispersión (5.0dB)' },
             amp: { name: 'EDFA', icon: 'fa-caret-right', desc: 'Ganancia Neta (20dB)' }
         };
-        const apiKey = "";
         const OPM_LAMBDAS = [1310, 1490, 1550, 1577, 1625, 'AUTO'];
 
         class FiberEngine {
@@ -407,24 +460,122 @@
                     dist: 80.0, baseTx: 3.0, attenuation: 0.25, engineeringMargin: 3.0,
                     events: [], selectedEventId: null, activeFiberIndex: 0, tool: 'cursor', view: 'schematic',
                     lockedPoint: null, mapInspectMarker: null, mapEventMarkers: [],
-                    opm: { lambdaIdx: 5, ref: null }, otdr: { rangeIdx: 1, zoom: false, showEvents: true }
+                    opm: { lambdaIdx: 5, ref: null }, otdr: { rangeIdx: 1, zoom: false, showEvents: true },
+                    contextMenu: { visible: false, x: 0, y: 0, km: 0, fiberIdx: 0 }
                 };
                 this.otdrRanges = [10, 40, 80, 160];
                 this.canvas = document.getElementById('fiberCanvas');
                 this.ctx = this.canvas.getContext('2d');
                 this.container = document.getElementById('schematic-container');
                 
-                this.initMap(); this.initOTDR(); this.bindInputs(); 
+                // Dragging Logic
+                this.dragState = { active: false, currentX: 0, currentY: 0, initialX: 0, initialY: 0, xOffset: 0, yOffset: 0 };
+
+                this.initMap(); 
+                this.initOTDR(); 
+                this.bindInputs(); 
                 this.generateInfrastructure();
-                this.loop(); this.updateToolPanel(); 
+                this.loop(); 
+                this.updateToolPanel(); 
+                
                 setTimeout(() => { this.updateOTDR(); this.drawSchematic(); this.refreshUI(); }, 100);
+            }
+
+            // --- DRAG & DROP WINDOWS ---
+            dragStart(e) {
+                if (e.type === "touchstart") {
+                    this.dragState.initialX = e.touches[0].clientX - this.dragState.xOffset;
+                    this.dragState.initialY = e.touches[0].clientY - this.dragState.yOffset;
+                } else {
+                    this.dragState.initialX = e.clientX - this.dragState.xOffset;
+                    this.dragState.initialY = e.clientY - this.dragState.yOffset;
+                }
+                if (e.target.closest('.opm-header')) {
+                    this.dragState.active = true;
+                }
+            }
+            dragEnd(e) {
+                this.dragState.initialX = this.dragState.currentX;
+                this.dragState.initialY = this.dragState.currentY;
+                this.dragState.active = false;
+            }
+            drag(e) {
+                if (this.dragState.active) {
+                    e.preventDefault();
+                    if (e.type === "touchmove") {
+                        this.dragState.currentX = e.touches[0].clientX - this.dragState.initialX;
+                        this.dragState.currentY = e.touches[0].clientY - this.dragState.initialY;
+                    } else {
+                        this.dragState.currentX = e.clientX - this.dragState.initialX;
+                        this.dragState.currentY = e.clientY - this.dragState.initialY;
+                    }
+                    this.dragState.xOffset = this.dragState.currentX;
+                    this.dragState.yOffset = this.dragState.currentY;
+                    
+                    const el = document.getElementById('hud-meter');
+                    el.style.transform = `translate(${this.dragState.currentX}px, ${this.dragState.currentY}px)`;
+                }
+            }
+
+            // --- PERSISTENCE ---
+            saveProject() {
+                const projectData = {
+                    date: new Date().toISOString(),
+                    params: {
+                        dist: this.state.dist,
+                        baseTx: this.state.baseTx,
+                        attenuation: this.state.attenuation,
+                        margin: this.state.engineeringMargin
+                    },
+                    events: this.state.events
+                };
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "proyecto_fibra.json");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+                this.showToast("Proyecto guardado exitosamente", "success");
+            }
+
+            loadProject(input) {
+                const file = input.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        this.state.dist = data.params.dist;
+                        this.state.baseTx = data.params.baseTx;
+                        this.state.attenuation = data.params.attenuation;
+                        this.state.engineeringMargin = data.params.margin;
+                        this.state.events = data.events;
+                        
+                        // Update UI Inputs
+                        document.getElementById('param-dist').value = this.state.dist;
+                        document.getElementById('param-tx').value = this.state.baseTx;
+                        document.getElementById('param-att').value = this.state.attenuation;
+                        document.getElementById('param-margin').value = this.state.engineeringMargin;
+                        
+                        this.refreshUI();
+                        this.showToast("Proyecto cargado correctamente", "success");
+                    } catch (err) {
+                        this.showToast("Error al leer archivo", "error");
+                    }
+                };
+                reader.readAsText(file);
+                input.value = ''; // Reset
             }
 
             // --- CRITICAL UI METHODS ---
             toggleView() {
                 const ml = document.getElementById('map-layer'); const sl = document.getElementById('schematic-layer');
                 if (this.state.view === 'schematic') {
-                    this.state.view = 'map'; ml.classList.remove('hidden'); sl.classList.add('hidden'); setTimeout(() => this.map.invalidateSize(), 100);
+                    this.state.view = 'map'; ml.classList.remove('hidden'); sl.classList.add('hidden'); 
+                    setTimeout(() => {
+                        this.map.invalidateSize();
+                    }, 200);
                 } else {
                     this.state.view = 'schematic'; ml.classList.add('hidden'); sl.classList.remove('hidden');
                 }
@@ -441,7 +592,8 @@
             setTool(t) {
                 this.state.tool = t;
                 document.querySelectorAll('.cad-btn').forEach(b => b.classList.remove('active'));
-                document.getElementById('tool-'+t).classList.add('active');
+                const btn = document.getElementById('tool-'+t);
+                if(btn) btn.classList.add('active');
                 this.updateToolPanel();
             }
 
@@ -452,12 +604,6 @@
                 if (service.name === 'FIBRA OSCURA') return -60; 
                 
                 let p = this.state.baseTx + fiberDef.txOffset;
-                // FORMULA: P_rx = P_tx - (alpha * D) - Margin - Events
-                // We apply margin distributed? Or at end? Standard is subtract from total.
-                // For trace visualization, we usually don't show margin as a slope, but as a limit.
-                // However, user wants "Losses". Let's apply margin only at the end validation or linearly.
-                // For accurate point measurement, we just subtract specific losses.
-                // The prompt formula says L_total includes Margin. So P_rx at end subtracts margin.
                 
                 const effectiveKm = Math.min(km, this.state.dist);
                 p -= (effectiveKm * this.state.attenuation);
@@ -472,9 +618,7 @@
                     }
                 }
                 
-                // If we are at the end, subtract margin for validation check, but for trace?
-                // Let's keep margin separate for the "Budget Panel" to avoid confusing trace drop.
-                return Math.max(p, -70);
+                return Math.max(p, -75);
             }
             
             // --- AUTO INFRASTRUCTURE ---
@@ -490,15 +634,15 @@
                     for (let f = 0; f < 12; f++) {
                         this.state.events.push({
                             id: Date.now() + Math.random(),
-                            km: k, type: 'splice', val: SPLICE_LOSS, fiberIdx: f, isSystem: true
+                            km: k, type: 'splice', val: SPLICE_LOSS, fiberIdx: f, isSystem: true, reflectance: null
                         });
                     }
                 }
 
                 // 2. Connectors at Start and End (ODF)
                 for (let f = 0; f < 12; f++) {
-                     this.state.events.push({ id: Date.now() + Math.random(), km: 0.01, type: 'connector', val: CONN_LOSS, fiberIdx: f, isSystem: true });
-                     this.state.events.push({ id: Date.now() + Math.random(), km: this.state.dist - 0.01, type: 'connector', val: CONN_LOSS, fiberIdx: f, isSystem: true });
+                     this.state.events.push({ id: Date.now() + Math.random(), km: 0.01, type: 'connector', val: CONN_LOSS, fiberIdx: f, isSystem: true, reflectance: -50 });
+                     this.state.events.push({ id: Date.now() + Math.random(), km: this.state.dist - 0.01, type: 'connector', val: CONN_LOSS, fiberIdx: f, isSystem: true, reflectance: -50 });
                 }
 
                 this.state.events.sort((a,b) => a.km - b.km);
@@ -507,8 +651,12 @@
             // --- GIS MAP ENGINE ---
             initMap() {
                 this.map = L.map('map-layer', { center: ROUTE_NODES[2], zoom: 13, zoomControl:false });
-                if(L.esri) { L.esri.basemapLayer('Imagery').addTo(this.map); L.esri.basemapLayer('ImageryLabels').addTo(this.map); } 
-                else { L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(this.map); }
+                if(L.esri) { 
+                    L.esri.basemapLayer('Imagery').addTo(this.map); 
+                    L.esri.basemapLayer('ImageryLabels').addTo(this.map); 
+                } else { 
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(this.map); 
+                }
                 this.drawMapFiberLines();
                 this.infraLayer = L.layerGroup().addTo(this.map);
                 this.addInfrastructureMarkers();
@@ -539,18 +687,33 @@
 
             addInfrastructureMarkers() {
                 ROUTE_NODES.forEach((pt, i) => { L.circleMarker(pt, { radius: 2, color: '#aaa', fillColor: '#444', fillOpacity: 1 }).addTo(this.infraLayer); });
-                const splitPt1 = ROUTE_NODES[6]; const mufaIcon = L.divIcon({className: 'icon-mufa', iconSize:[12,8]});
-                L.marker(splitPt1, {icon: mufaIcon}).addTo(this.infraLayer).bindPopup("MUFA M-01 (INTERNET)");
-                const housePt = [splitPt1[0]+0.0008, splitPt1[1]-0.0008]; 
-                L.polyline([splitPt1, housePt], {color:'cyan', dashArray:'3,3', weight:2}).addTo(this.map);
-                const napIcon = L.divIcon({className:'icon-nap', iconSize:[10,10]});
-                L.marker(housePt, {icon:napIcon}).addTo(this.map).bindPopup("NAP-045");
-                const splitPt2 = ROUTE_NODES[8];
-                L.marker(splitPt2, {icon: mufaIcon}).addTo(this.infraLayer).bindPopup("MUFA M-02 (CCTV)");
-                const camPt = [splitPt2[0]-0.0005, splitPt2[1]-0.0005];
-                L.polyline([splitPt2, camPt], {color:'red', dashArray:'3,3', weight:2}).addTo(this.map);
-                const camIcon = L.divIcon({className:'icon-camera', html:'<i class="fa-solid fa-video" style="font-size:10px"></i>', iconSize:[16,16]});
-                L.marker(camPt, {icon:camIcon}).addTo(this.map).bindPopup("PTZ-102");
+                
+                const drawDist = (startNodeIdx, offsetLat, offsetLng, type, label, lossExtra) => {
+                    const startPt = ROUTE_NODES[startNodeIdx];
+                    const endPt = [startPt[0] + offsetLat, startPt[1] + offsetLng];
+                    const kmAtMufa = (startNodeIdx / (ROUTE_NODES.length - 1)) * this.state.dist;
+                    const fiberIdx = type === 'INTERNET' ? 0 : 7; 
+                    const pwrAtMufa = this.calcPowerAt(kmAtMufa, fiberIdx);
+                    const pwrEnd = pwrAtMufa - lossExtra; 
+                    const color = type === 'INTERNET' ? '#00bcd4' : '#e91e63'; 
+                    const dash = type === 'INTERNET' ? '3,3' : '1,2';
+                    const line = L.polyline([startPt, endPt], {color: color, dashArray: dash, weight: 1.5, opacity: 0.8}).addTo(this.map);
+                    line.bindPopup(`<div class='text-xs font-mono'><b>TRAMO ÚLTIMA MILLA (${type})</b><br>Origen: Mufa N${startNodeIdx}<br>Pérdida Distribución: -${lossExtra} dB<br>Rx Estimado: <b style="color:${pwrEnd < -25 ? 'red' : '#4ade80'}">${pwrEnd.toFixed(2)} dBm</b></div>`);
+                    let iconHtml = type === 'INTERNET' ? '<i class="fa-solid fa-house-signal text-[8px]"></i>' : '<i class="fa-solid fa-video text-[8px]"></i>';
+                    const icon = L.divIcon({ className: 'custom-map-icon', html: `<div style="background:${color}; width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1px solid white; box-shadow:0 0 5px ${color}; color:black;">${iconHtml}</div>`, iconSize: [16, 16] });
+                    L.marker(endPt, {icon: icon}).addTo(this.map).bindPopup(`<div class='text-xs font-mono'><b>${label}</b><br>Estado: ${pwrEnd > -25 ? 'ONLINE' : 'OFFLINE'}<br>Potencia: ${pwrEnd.toFixed(2)} dBm</div>`);
+                };
+
+                const mufa1 = ROUTE_NODES[6];
+                L.marker(mufa1, {icon: L.divIcon({className: 'icon-mufa', iconSize:[14,14]})}).addTo(this.infraLayer).bindPopup("MUFA M-01 (DISTRIBUCIÓN)");
+                drawDist(6,  0.0010, -0.0010, 'INTERNET', 'CLIENTE: RESIDENCIAL 01', 11.5);
+                drawDist(6,  0.0012, -0.0005, 'INTERNET', 'CLIENTE: BODEGA CENTRAL', 11.0);
+                drawDist(6,  0.0008, -0.0015, 'INTERNET', 'CLIENTE: EDIFICIO A', 12.0);
+
+                const mufa2 = ROUTE_NODES[8];
+                L.marker(mufa2, {icon: L.divIcon({className: 'icon-mufa', iconSize:[14,14]})}).addTo(this.infraLayer).bindPopup("MUFA M-02 (SEGURIDAD)");
+                drawDist(8, -0.0005, -0.0005, 'CCTV', 'CÁMARA: PTZ-101 NORTE', 8.0);
+                drawDist(8, -0.0008, -0.0002, 'CCTV', 'CÁMARA: FIJA-205 OESTE', 7.5);
             }
             
             updateMapInspectionMarker(latlng) {
@@ -559,19 +722,19 @@
                 this.state.mapInspectMarker = L.marker(latlng, {icon:icon}).addTo(this.map);
             }
             
-            updateMapMarkers() { /* ... */ }
-
             // --- SCHEMATIC RENDER ---
             drawSchematic() {
                 const w = this.canvas.width; const h = this.canvas.height; const ctx = this.ctx;
                 ctx.clearRect(0,0,w,h);
+                // Background Grid
+                ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+                for(let x=0; x<w; x+=20) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+                for(let y=0; y<h; y+=20) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
                 const marginX = 60; const usableW = w - marginX*2; const centerY = h/2;
-                const grad = ctx.createLinearGradient(0, centerY-100, 0, centerY+100);
-                grad.addColorStop(0,'#0a0a0a'); grad.addColorStop(0.5,'#151515'); grad.addColorStop(1,'#0a0a0a');
-                ctx.fillStyle = grad; ctx.fillRect(0, centerY-80, w, 160);
                 const spacing = 14; const startY = centerY - (12*spacing)/2 + spacing/2;
                 
-                // LABELS OLT / ONT
+                // LABELS
                 ctx.fillStyle = '#666'; ctx.font = 'bold 10px monospace';
                 ctx.textAlign='left'; ctx.fillText('OLT [TX]', 10, 20);
                 ctx.textAlign='right'; ctx.fillText('ONT/ODF [RX]', w-10, 20);
@@ -594,7 +757,6 @@
                     ctx.beginPath(); ctx.arc(px, fy, 4, 0, Math.PI*2); ctx.fillStyle = '#00bcd4'; ctx.fill();
                 }
                 
-                // Draw manual events prominently
                 this.state.events.forEach(ev => {
                     const ex = marginX + (ev.km / this.state.dist) * usableW;
                     const fy = startY + ev.fiberIdx * spacing;
@@ -603,8 +765,9 @@
                     else {
                         if (ev.type === 'amp') { color='#00bcd4'; icon='\uf04b'; }
                         else if (ev.type === 'splitter') { color='#a855f7'; icon='\uf1e0'; }
+                        else if (ev.type === 'dcm') { color='#ec4899'; icon='\uf0b0'; }
                         else if (ev.type === 'splice') { color='#ff9800'; icon='\uf00d'; }
-                        else { color='#ccc'; icon='\uf7a4'; }
+                        else if (ev.type === 'connector') { color='#ccc'; icon='\uf7a4'; }
                     }
                     ctx.fillStyle = color; ctx.font=`${size} FontAwesome`; ctx.textAlign='center'; ctx.textBaseline='middle';
                     ctx.fillText(icon, ex, fy);
@@ -612,75 +775,122 @@
             }
 
             // --- OTDR (Corrected Logic) ---
+            initOTDR() {
+                const ctx = document.getElementById('otdrChart').getContext('2d');
+                Chart.defaults.color = '#666';
+                Chart.defaults.font.family = 'monospace';
+                
+                this.chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'Potencia',
+                            data: [],
+                            borderColor: '#eab308',
+                            borderWidth: 1.5,
+                            tension: 0,
+                            pointRadius: 0,
+                            pointHoverRadius: 6,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: { display: true, text: 'Distancia (km)', color: '#666', font: {size:10, weight:'bold'} },
+                                grid: { color: '#333', borderColor: '#444', borderDash: [2, 2] },
+                                ticks: { color: '#888', font: {size:10} }
+                            },
+                            y: {
+                                title: { display: true, text: 'dBm', color: '#666', font: {size:10, weight:'bold'} },
+                                grid: { color: '#333', borderColor: '#444', borderDash: [2, 2] },
+                                ticks: { color: '#888', font: {size:10} },
+                                min: -80,
+                                max: 10
+                            }
+                        }
+                    }
+                });
+            }
+
             updateOTDR() {
                 if(!this.chart) { this.initOTDR(); return; }
                 const fiber = CABLE_CONFIG[this.state.activeFiberIndex];
-                let traceColor = fiber.hex;
-                if (fiber.hex.toLowerCase() === '#333333' || fiber.hex.toLowerCase() === '#000000') traceColor = '#e0e0e0';
-
+                let traceColor = '#eab308';
                 this.chart.data.datasets[0].borderColor = traceColor;
-                this.chart.data.datasets[0].backgroundColor = (ctx) => {
-                    const g = ctx.chart.ctx.createLinearGradient(0,0,0,200); g.addColorStop(0, traceColor+'33'); g.addColorStop(1, traceColor+'00'); return g;
-                };
                 
                 const maxX = this.otdrRanges[this.state.otdr.rangeIdx];
                 this.chart.options.scales.x.max = maxX;
                 
-                const data = []; const steps = 500; // Resolution
-                const points = [0, this.state.dist];
-                // Include ALL events for this fiber (manual + system)
+                const data = []; const steps = 800; 
+                let points = [0, this.state.dist];
                 const activeEvents = this.state.events.filter(e => e.fiberIdx === this.state.activeFiberIndex);
                 activeEvents.forEach(e => points.push(e.km));
-                for(let i=0; i<=steps; i++) points.push((i/steps)*this.state.dist);
-                const sorted = [...new Set(points)].sort((a,b)=>a-b);
-                
+                for(let i=0; i<=steps; i++) points.push((i/steps)*maxX);
+                points = [...new Set(points)].sort((a,b)=>a-b);
+                points = points.filter(p => p <= maxX); 
+
                 let minP = 100, maxP = -100;
-                sorted.forEach(km => {
-                    if(km>0) {
-                        const v1 = this.calcPowerAt(km-0.001, this.state.activeFiberIndex);
-                        data.push({x:km, y:v1});
+                const NOISE_FLOOR = -75;
+
+                points.forEach(km => {
+                    let noise = (Math.random() - 0.5) * 0.5;
+                    let pwr = this.calcPowerAt(km, this.state.activeFiberIndex);
+                    
+                    if (pwr < NOISE_FLOOR) pwr = NOISE_FLOOR + (Math.random() * 4);
+                    else pwr += noise;
+
+                    const ev = activeEvents.find(e => Math.abs(e.km - km) < 0.001);
+                    const isReflective = ev && (ev.reflectance !== null && ev.reflectance !== undefined);
+                    
+                    if(km > 0.001) {
+                        let v1 = this.calcPowerAt(km-0.001, this.state.activeFiberIndex);
+                        if (v1 < NOISE_FLOOR) v1 = NOISE_FLOOR + (Math.random() * 4);
+                        else v1 += noise;
+
+                        data.push({x:km-0.0001, y:v1});
                         if(v1 < minP) minP = v1; if(v1 > maxP) maxP = v1;
+
+                        if (isReflective) {
+                            // Physics-based reflection: 
+                            // Spike height approx proportional to reflectance (simplified model)
+                            // -30dB = very high spike, -60dB = small bump
+                            const ref = ev.reflectance || -50;
+                            const height = Math.max(0, (ref + 70) * 0.5); // Arbitrary scale factor for visuals
+                            let spike = v1 + height + (Math.random()*2);
+                            
+                            const SATURATION_LIMIT = 5.0;
+                            if (spike > SATURATION_LIMIT) spike = SATURATION_LIMIT + (Math.random() * 0.5); 
+                            data.push({x: km, y: spike}); 
+                        }
+                    } else if (km === 0) {
+                         data.push({x: 0, y: 6 + (Math.random()*0.5)});
                     }
-                    const v2 = this.calcPowerAt(km, this.state.activeFiberIndex);
-                    data.push({x:km, y:v2});
-                    if(v2 < minP) minP = v2; if(v2 > maxP) maxP = v2;
+                    
+                    data.push({x:km, y:pwr});
+                    if(pwr < minP) minP = pwr; if(pwr > maxP) maxP = pwr;
                 });
                 
-                // Scale Logic
                 if (this.state.otdr.zoom && this.state.lockedPoint) {
                     const c = this.state.lockedPoint.km; const s = maxX * 0.05;
                     this.chart.options.scales.x.min = Math.max(0, c-s); this.chart.options.scales.x.max = Math.min(this.state.dist, c+s);
                     const p = this.calcPowerAt(c, this.state.activeFiberIndex);
-                    this.chart.options.scales.y.min = p-3; this.chart.options.scales.y.max = p+3;
+                    this.chart.options.scales.y.min = p-5; this.chart.options.scales.y.max = p+5;
                 } else {
                     this.chart.options.scales.x.min = 0; 
-                    const safeMin = Math.max(-75, minP - 5);
+                    const safeMin = Math.max(-85, minP - 5);
                     const safeMax = Math.max(10, maxP + 5);
                     this.chart.options.scales.y.min = safeMin;
                     this.chart.options.scales.y.max = safeMax;
                 }
 
                 this.chart.data.datasets[0].data = data;
-                
-                if (this.state.otdr.showEvents) {
-                    this.chart.data.datasets[0].pointRadius = (ctx) => {
-                        const val = ctx.raw; if (!val) return 0;
-                        // Show bigger dots for manual events
-                        const ev = activeEvents.find(e => Math.abs(e.km - val.x) < 0.01);
-                        if (ev) {
-                            return ev.isSystem ? 2 : 5; // Small for system, Big for manual
-                        }
-                        return 0;
-                    };
-                    // Dynamic color for points?
-                    this.chart.data.datasets[0].pointBackgroundColor = (ctx) => {
-                        const val = ctx.raw; if (!val) return 'transparent';
-                        const ev = activeEvents.find(e => Math.abs(e.km - val.x) < 0.01);
-                        if (ev && ev.isSystem) return '#666'; // Gray for system
-                        return '#ff9800'; // Orange for manual
-                    };
-                } else { this.chart.data.datasets[0].pointRadius = 0; }
-
                 this.chart.update();
             }
 
@@ -693,32 +903,30 @@
                 this.state.lockedPoint = { km, fiberIndex: idx };
                 this.state.activeFiberIndex = idx;
                 const hud = document.getElementById('hud-meter');
-                if(hud) { hud.classList.remove('hidden','opacity-0','translate-y-2'); hud.classList.add('pointer-events-auto'); }
+                if(hud) { hud.classList.remove('hidden'); }
                 
-                // MATH PANEL UPDATE
                 const txBase = this.state.baseTx;
                 const distLoss = km * this.state.attenuation;
                 let eventLoss = 0;
-                let splicesCount = 0; let connCount = 0;
+                let dcmLoss = 0; 
+                
                 for(let ev of this.state.events) {
                     if (ev.km <= km && ev.fiberIdx === idx) {
-                         if (ev.type === 'splice') splicesCount++;
-                         if (ev.type === 'connector') connCount++;
-                         eventLoss += ev.val;
+                         if (ev.type === 'dcm') { dcmLoss += ev.val; eventLoss += ev.val; } 
+                         else if (ev.type === 'amp') { eventLoss -= (ev.val - 0.5); } 
+                         else { eventLoss += ev.val; }
                     }
                 }
                 const margin = this.state.engineeringMargin;
-                // Final power for checking status: Tx - (Fiber + Events) - Margin (if applied to end)
-                // Let's show Margin in equation
                 const calcRx = txBase - distLoss - eventLoss - margin;
 
                 let mathHTML = `
                     <div class="math-header">CALCULO DE PRESUPUESTO</div>
                     <div class="math-row"><span>1. Potencia TX:</span><span class="val-pos">${txBase.toFixed(2)} dBm</span></div>
                     <div class="math-row"><span>2. Fibra (${this.state.attenuation} dB/km * ${km.toFixed(1)}):</span><span class="val-neg">-${distLoss.toFixed(2)} dB</span></div>
-                    <div class="math-row"><span>3. Empalmes (${splicesCount} * 0.1):</span><span class="val-neg">-${(splicesCount*0.1).toFixed(2)} dB</span></div>
-                    <div class="math-row"><span>4. Conectores (${connCount} * 0.5):</span><span class="val-neg">-${(connCount*0.5).toFixed(2)} dB</span></div>
-                    <div class="math-row"><span>5. Margen Seguridad:</span><span class="val-neg">-${margin.toFixed(2)} dB</span></div>
+                    ${dcmLoss > 0 ? `<div class="math-row"><span>3. Compensación (DCM):</span><span class="val-neg">-${dcmLoss.toFixed(2)} dB</span></div>` : ''}
+                    <div class="math-row"><span>${dcmLoss > 0 ? '4' : '3'}. Eventos (Neto):</span><span class="val-neg">-${(eventLoss - dcmLoss).toFixed(2)} dB</span></div>
+                    <div class="math-row"><span>${dcmLoss > 0 ? '5' : '4'}. Margen Seguridad:</span><span class="val-neg">-${margin.toFixed(2)} dB</span></div>
                     <div style="border-top:1px solid #555; margin-top:4px; padding-top:2px; display:flex; justify-content:space-between; font-size:12px;">
                         <span>RX FINAL:</span><span style="font-weight:bold; color:${calcRx<-28?'#f87171':calcRx>0?'#fbbf24':'#4ade80'}">${calcRx.toFixed(2)} dBm</span>
                     </div>
@@ -728,8 +936,8 @@
                 document.getElementById('math-display').classList.remove('hidden');
 
                 const f = CABLE_CONFIG[idx]; const s = SERVICES[f.svc];
-                this.setStyle('hud-fiber-name','color',f.hex); this.setStyle('hud-fiber-color','backgroundColor',f.hex);
                 this.setText('hud-fiber-id', `HILO ${f.id} (${f.colorName})`);
+                this.setStyle('hud-fiber-id','color',f.hex);
                 this.setText('hud-dist', km.toFixed(3)+' km');
                 this.setText('panel-fiber-id', `Hilo ${f.id}`); this.setStyle('panel-fiber-id','color',f.hex);
                 this.setText('panel-service', s.name); this.setText('panel-lambda', s.lambda+' nm');
@@ -754,20 +962,28 @@
             bindInputs() {
                 const rs = () => { this.canvas.width = this.container.clientWidth; this.canvas.height = this.container.clientHeight; this.drawSchematic(); };
                 window.addEventListener('resize', rs); rs();
+                
+                // Canvas Click (Left)
                 this.canvas.addEventListener('click', (e) => {
-                    const r = this.canvas.getBoundingClientRect();
-                    const x = e.clientX - r.left; const y = e.clientY - r.top;
-                    const mx = 60; const uw = this.canvas.width - mx*2;
-                    let km = ((x-mx)/uw)*this.state.dist; if(km<0) km=0; if(km>this.state.dist) km=this.state.dist;
-                    
-                    const cy = this.canvas.height/2; const sp = 14; const startY = cy - (12*sp)/2 + sp/2;
-                    let fIdx = Math.round((y-startY)/sp); if(fIdx<0) fIdx=0; if(fIdx>11) fIdx=11;
-                    
-                    if(this.state.tool==='cursor') {
-                        const hit = this.state.events.find(ev => !ev.isSystem && Math.abs(ev.km-km)<0.5 && ev.fiberIdx===fIdx);
-                        if(hit) this.selectEvent(hit.id); else this.inspectFiber(km, fIdx);
-                    } else this.addEvent(km, this.state.tool, fIdx);
+                    this.handleCanvasInteraction(e, false);
                 });
+
+                // Canvas Context Menu (Right Click)
+                this.canvas.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    this.handleCanvasInteraction(e, true);
+                });
+
+                // Global Click to close context menu
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('#context-menu')) document.getElementById('context-menu').style.display = 'none';
+                });
+
+                // Dragging Events
+                document.addEventListener('mousemove', (e) => this.drag(e));
+                document.addEventListener('mouseup', (e) => this.dragEnd(e));
+                document.addEventListener('touchmove', (e) => this.drag(e), {passive:false});
+                document.addEventListener('touchend', (e) => this.dragEnd(e));
                 
                 document.getElementById('param-dist').addEventListener('change', (e) => { this.state.dist = parseFloat(e.target.value); this.generateInfrastructure(); this.updateOTDR(); });
                 document.getElementById('param-tx').addEventListener('change', (e) => { this.state.baseTx = parseFloat(e.target.value); this.updateOTDR(); });
@@ -775,24 +991,80 @@
                 document.getElementById('param-margin').addEventListener('change', (e) => { this.state.engineeringMargin = parseFloat(e.target.value); });
             }
 
+            handleCanvasInteraction(e, isRightClick) {
+                const r = this.canvas.getBoundingClientRect();
+                const x = e.clientX - r.left; const y = e.clientY - r.top;
+                const mx = 60; const uw = this.canvas.width - mx*2;
+                let km = ((x-mx)/uw)*this.state.dist; 
+                if(km<0) km=0; if(km>this.state.dist) km=this.state.dist;
+                
+                const cy = this.canvas.height/2; const sp = 14; const startY = cy - (12*sp)/2 + sp/2;
+                let fIdx = Math.round((y-startY)/sp); if(fIdx<0) fIdx=0; if(fIdx>11) fIdx=11;
+
+                if (isRightClick) {
+                    this.state.contextMenu = { x: e.clientX, y: e.clientY, km, fiberIdx: fIdx };
+                    const cm = document.getElementById('context-menu');
+                    cm.style.display = 'block';
+                    cm.style.left = e.clientX + 'px';
+                    cm.style.top = e.clientY + 'px';
+                } else {
+                    // Left Click Logic
+                    if(this.state.tool==='cursor') {
+                        const hit = this.state.events.find(ev => !ev.isSystem && Math.abs(ev.km-km)<0.5 && ev.fiberIdx===fIdx);
+                        if(hit) this.selectEvent(hit.id); else this.inspectFiber(km, fIdx);
+                    } else this.addEvent(km, this.state.tool, fIdx);
+                }
+            }
+
+            ctxAction(action) {
+                const { km, fiberIdx } = this.state.contextMenu;
+                document.getElementById('context-menu').style.display = 'none';
+                if (action === 'inspect') {
+                    this.setTool('cursor');
+                    this.inspectFiber(km, fiberIdx);
+                } else {
+                    this.addEvent(km, action, fiberIdx);
+                }
+            }
+
             addEvent(km, type, fIdx) {
-                let v = 0.1; // Splice
-                if(type==='connector') v=0.5; if(type==='splitter') v=10.0; if(type==='amp') v=20; 
-                const ev = { id:Date.now(), km, type, val:v, fiberIdx:fIdx, isSystem:false };
+                let v = 0.1; let ref = null;
+                if(type==='connector') { v=0.5; ref=-50; }
+                else if(type==='splitter') v=10.0; 
+                else if(type==='amp') v=20; 
+                else if(type==='dcm') v=5.0; 
+                
+                const ev = { id:Date.now(), km, type, val:v, fiberIdx:fIdx, isSystem:false, reflectance: ref };
                 this.state.events.push(ev); this.state.events.sort((a,b)=>a.km-b.km);
                 this.refreshUI(); this.showToast("Componente añadido", "success");
             }
             selectEvent(id) {
-                this.state.selectedEventId = id; const p = document.getElementById('prop-panel'); this.closeHUD();
+                this.state.selectedEventId = id; const p = document.getElementById('prop-panel');
                 if(id) {
+                    this.closeHUD();
                     const e = this.state.events.find(x=>x.id===id); p.classList.remove('hidden');
-                    this.setText('edit-type', e.type.toUpperCase()); document.getElementById('prop-km').value=e.km.toFixed(2); document.getElementById('prop-val').value=e.val;
+                    this.setText('edit-type', e.type.toUpperCase()); 
+                    document.getElementById('prop-km').value=e.km.toFixed(2); 
+                    document.getElementById('prop-val').value=e.val;
+                    const refGroup = document.getElementById('prop-reflectance-group');
+                    if (e.type === 'connector' || e.reflectance !== null) {
+                        refGroup.classList.remove('hidden');
+                        document.getElementById('prop-ref').value = e.reflectance || -50;
+                    } else {
+                        refGroup.classList.add('hidden');
+                    }
                 } else p.classList.add('hidden');
                 this.drawSchematic();
             }
             updateSelected() {
                 const e = this.state.events.find(x=>x.id===this.state.selectedEventId);
-                if(e) { e.km = parseFloat(document.getElementById('prop-km').value); e.val = parseFloat(document.getElementById('prop-val').value); }
+                if(e) { 
+                    e.km = parseFloat(document.getElementById('prop-km').value); 
+                    e.val = parseFloat(document.getElementById('prop-val').value);
+                    if (e.reflectance !== null) {
+                        e.reflectance = parseFloat(document.getElementById('prop-ref').value);
+                    }
+                }
                 this.refreshUI();
             }
             deleteSelected() {
@@ -821,8 +1093,7 @@
             
             calculateFinalPower() {
                 if(!this.state.lockedPoint) return -99;
-                const real = this.calcPowerAt(this.state.lockedPoint.km, this.state.lockedPoint.fiberIndex);
-                return real;
+                return this.calcPowerAt(this.state.lockedPoint.km, this.state.lockedPoint.fiberIndex);
             }
             refreshHUDDisplay() {
                 if(!this.state.lockedPoint) return;
@@ -830,8 +1101,8 @@
                 this.setText('hud-lambda', man==='AUTO'?'AUTO':man+'nm');
                 const val = this.calculateFinalPower();
                 let dVal = val;
-                if(this.state.opm.ref!==null) { dVal=val-this.state.opm.ref; this.setText('hud-unit','dB'); this.setText('hud-mode','REL'); this.setText('hud-ref-val', this.state.opm.ref.toFixed(2)); }
-                else { this.setText('hud-unit','dBm'); this.setText('hud-mode','ABS'); this.setText('hud-ref-val','--'); }
+                if(this.state.opm.ref!==null) { dVal=val-this.state.opm.ref; this.setText('hud-unit','dB'); this.setText('hud-mode','REL'); }
+                else { this.setText('hud-unit','dBm'); this.setText('hud-mode','ABS'); }
                 if(val<=-60) this.setText('hud-pwr','LO'); else this.setText('hud-pwr', dVal.toFixed(2));
             }
 
@@ -851,16 +1122,68 @@
                 const c = document.getElementById('toast-container');
                 const t = document.createElement('div'); t.className='toast'; t.innerHTML=`<span>${msg}</span>`;
                 if(type==='success') t.style.borderLeftColor='#4caf50';
+                if(type==='error') t.style.borderLeftColor='#f44336';
                 c.appendChild(t); setTimeout(()=>{ t.remove() },3000);
             }
-
-            initOTDR() { /* ... */ }
-            // ... (rest of methods)
             
             toggleAI() { const p = document.getElementById('ai-panel'); p.classList.toggle('open'); }
-            // ... (AI methods)
-            async askGemini(predefinedPrompt = null) { /* ... */ }
-            async callGemini(prompt) { /* ... */ }
+            
+            async askGemini(predefinedPrompt = null) {
+                const input = document.getElementById('ai-input');
+                const chat = document.getElementById('ai-chat-content');
+                const key = document.getElementById('gemini-key').value;
+                const question = predefinedPrompt || input.value;
+                if (!question) return;
+
+                chat.innerHTML += `<div class="ai-message user">${question}</div>`;
+                input.value = '';
+                chat.scrollTop = chat.scrollHeight;
+                
+                if(!key) {
+                    setTimeout(() => {
+                        chat.innerHTML += `<div class="ai-message bot text-red-400">⚠️ Por favor ingresa una API Key válida en el campo superior.</div>`;
+                        chat.scrollTop = chat.scrollHeight;
+                    }, 500);
+                    return;
+                }
+
+                const context = `
+                    Actúa como ingeniero experto en fibra óptica (GPON/DWDM).
+                    Estado actual de la red:
+                    - Distancia total: ${this.state.dist} km
+                    - Potencia TX Base: ${this.state.baseTx} dBm
+                    - Atenuación cable: ${this.state.attenuation} dB/km
+                    - Hilo Activo: ${this.state.activeFiberIndex + 1}
+                    - Eventos en red: ${JSON.stringify(this.state.events.filter(e => !e.isSystem).map(e => `${e.type} a ${e.km}km (${e.val}dB)`))}
+                    Responde breve y técnicamente.
+                `;
+
+                chat.innerHTML += `<div class="ai-message bot"><i class="fa-solid fa-circle-notch fa-spin"></i> Analizando...</div>`;
+                
+                try {
+                    const response = await this.callGemini(context + "\nUsuario pregunta: " + question, key);
+                    chat.lastElementChild.innerHTML = response.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); 
+                } catch (e) {
+                    console.error(e);
+                    chat.lastElementChild.innerHTML = "Error de conexión con IA.";
+                }
+                chat.scrollTop = chat.scrollHeight;
+            }
+
+            async callGemini(prompt, key) {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${key}`;
+                const data = { contents: [{ parts: [{ text: prompt }] }] };
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const json = await res.json();
+                if(json.error) return "Error API: " + json.error.message;
+                return json.candidates?.[0]?.content?.parts?.[0]?.text || "Sin respuesta.";
+            }
             
             loop() { requestAnimationFrame(() => this.loop()); }
         }
